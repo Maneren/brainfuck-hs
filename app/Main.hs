@@ -13,7 +13,6 @@ import Data.List (uncons)
 import Data.Vector.Unboxed (Vector, replicate, (!), (//))
 import Data.Word (Word8)
 import System.Environment (getArgs)
-import Text.Printf (printf)
 
 data VM = VM {mem :: Vector Word8, ptr :: Int, input :: String} deriving (Show)
 type VMState = StateT VM IO
@@ -110,10 +109,6 @@ interpret :: [OptimizedInstruction] -> VMState ()
 interpret [] = return ()
 interpret (x : xs) = do
   interpretInstruction x
-  ptr' <- gets ptr
-  mem' <- gets mem
-  liftIO $ print x
-  liftIO $ printf "ptr: %d, mem: %s\n" ptr' (show mem')
   interpret xs
 
 interpretInstruction :: OptimizedInstruction -> VMState ()
