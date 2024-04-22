@@ -33,6 +33,7 @@ data OptimizedInstruction
   | OptimizedSub Word8
   | OptimizedMoveLeft Int
   | OptimizedMoveRight Int
+  | OptimizedClear
   | OptimizedLoop [OptimizedInstruction]
   | OptimizedOutput
   | OptimizedInput
@@ -61,7 +62,7 @@ parse (x : xs) = case x of
 optimize :: [Instruction] -> [OptimizedInstruction]
 optimize [] = []
 optimize (x : xs) = case x of
-  Loop body -> OptimizedLoop (optimize body) : optimize xs
+  Loop body -> optimizeLoop body : optimize xs
   Output -> OptimizedOutput : optimize xs
   Input -> OptimizedInput : optimize xs
   _ -> optimizeOne xs
@@ -77,6 +78,11 @@ optimize (x : xs) = case x of
     MoveLeft -> OptimizedMoveLeft $ fromIntegral c
     MoveRight -> OptimizedMoveRight $ fromIntegral c
     _ -> error "optimize: invalid instruction"
+
+  optimizeLoop [] = error "optimizeLoop: empty loop body"
+  optimizeLoop [Sub] = OptimizedClear
+  optimizeLoop [Add] = OptimizedClear
+  optimizeLoop body = OptimizedLoop (optimize body)
 
 main :: IO ()
 main = do
@@ -136,6 +142,10 @@ interpretInstruction OptimizedInput = do
  where
   ord' :: Char -> Word8
   ord' = toEnum . ord
+interpretInstruction OptimizedClear = do
+  mem' <- gets mem
+  ptr' <- gets ptr
+  modify $ \vm -> vm{mem = mem' // [(ptr', 0)]}
 interpretInstruction (OptimizedLoop body) = do
   ptr' <- gets ptr
   mem' <- gets mem
