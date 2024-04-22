@@ -20,6 +20,6 @@ executable brainfuck-hs
     build-depends:    
         base >= 4,
         mtl >= 2,
-        array >= 0.5,
+        vector >= 0.5,
     hs-source-dirs:   app
     default-language: Haskell2010

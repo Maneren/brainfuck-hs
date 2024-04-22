@@ -8,16 +8,15 @@ import Control.Monad.State.Lazy (
   gets,
   modify,
  )
-import Data.Array.Unboxed (UArray, listArray, (!), (//))
 import Data.Char (chr, ord)
 import Data.Functor ((<&>))
 import Data.List (uncons)
 import Data.Maybe (fromMaybe)
+import Data.Vector.Unboxed (Vector, replicate, (!), (//))
 import Data.Word (Word8)
 import System.Environment (getArgs)
 
--- Memory, Pointer, and Output
-data VM = VM {mem :: UArray Int Word8, ptr :: Int, input :: String} deriving (Show)
+data VM = VM {mem :: Vector Word8, ptr :: Int, input :: String} deriving (Show)
 type VMState = StateT VM IO
 
 data Instruction
@@ -87,7 +86,7 @@ main = do
     _ -> error "Usage: ./brainfuck <file>"
 
   contents <- readFile file
-  let initialState = VM{mem = listArray (0, memSize - 1) (repeat 0), ptr = 0, input = ""}
+  let initialState = VM{mem = Data.Vector.Unboxed.replicate memSize 0, ptr = 0, input = ""}
       instructions = optimize $ parse contents
   evalStateT (interpret instructions) initialState
 
