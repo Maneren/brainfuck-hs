@@ -13,6 +13,7 @@ import Data.List (uncons)
 import Data.Vector.Unboxed (Vector, replicate, (!), (//))
 import Data.Word (Word8)
 import System.Environment (getArgs)
+import System.IO (BufferMode (..), hSetBuffering, stdout)
 
 data VM = VM {mem :: Vector Word8, ptr :: Int, input :: String} deriving (Show)
 type VMState = StateT VM IO
@@ -92,6 +93,7 @@ optimize (x : xs) = case x of
 
 main :: IO ()
 main = do
+  hSetBuffering stdout NoBuffering
   args <- getArgs
   (file, memSize) <- case args of
     [file, memSize] -> do
