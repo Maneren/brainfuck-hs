@@ -49,15 +49,21 @@ parse (x : xs) = case x of
   '.' -> Output : parse xs
   ',' -> Input : parse xs
   '[' ->
-    let (body, xs') = consumeLoopBody xs
+    let (body, xs') = consumeLoopBody xs 1
      in (Loop $ parse body) : parse xs'
   _ -> parse xs
  where
-  consumeLoopBody [] = ([], [])
-  consumeLoopBody (']' : xs') = ([], xs')
-  consumeLoopBody (x' : xs') =
-    let (body, xs'') = consumeLoopBody xs'
-     in (x' : body, xs'')
+  consumeLoopBody :: String -> Int -> (String, String)
+  consumeLoopBody [] _ = ([], [])
+  consumeLoopBody (x' : xs') level
+    | x' == ']' && level == 1 = ([], xs')
+    | x' == '[' = consumeChar (level + 1)
+    | x' == ']' = consumeChar (level - 1)
+    | otherwise = consumeChar level
+   where
+    consumeChar level' =
+      let (body, xs'') = consumeLoopBody xs' level'
+       in (x' : body, xs'')
 
 optimize :: [Instruction] -> [OptimizedInstruction]
 optimize [] = []
