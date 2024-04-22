@@ -92,42 +92,34 @@ main = do
 interpret :: [OptimizedInstruction] -> VMState ()
 interpret [] = return ()
 interpret (x : xs) = do
-  current <- interpretInstruction x
+  interpretInstruction x
   ptr' <- gets ptr
   mem' <- gets mem
   liftIO $ print x
   liftIO $ printf "ptr: %d, mem: %s\n" ptr' (show mem')
-  liftIO $ print current
-  case current of
-    Just str -> do
-      liftIO $ putChar str
-      interpret xs
-    Nothing -> interpret xs
+  interpret xs
 
-interpretInstruction :: OptimizedInstruction -> VMState (Maybe Char)
+interpretInstruction :: OptimizedInstruction -> VMState ()
 interpretInstruction (OptimizedAdd c) = do
   mem' <- gets mem
   ptr' <- gets ptr
   modify $ \vm -> vm{mem = mem' // [(ptr', (mem' ! ptr') + c)]}
-  return Nothing
 interpretInstruction (OptimizedSub c) = do
   mem' <- gets mem
   ptr' <- gets ptr
   modify $ \vm -> vm{mem = mem' // [(ptr', (mem' ! ptr') - c)]}
-  return Nothing
 interpretInstruction (OptimizedMoveLeft c) = do
   ptr' <- gets ptr
   modify $ \vm -> vm{ptr = (ptr' - c)}
-  return Nothing
 interpretInstruction (OptimizedMoveRight c) = do
   ptr' <- gets ptr
   modify $ \vm -> vm{ptr = (ptr' + c)}
-  return Nothing
 interpretInstruction OptimizedOutput = do
   mem' <- gets mem
   ptr' <- gets ptr
-  return $ Just $ chr' (mem' ! ptr')
+  liftIO $ putChar $ chr' (mem' ! ptr')
  where
+  chr' :: Word8 -> Char
   chr' = chr . fromEnum
 interpretInstruction OptimizedInput = do
   vm <- get
@@ -136,14 +128,14 @@ interpretInstruction OptimizedInput = do
       ptr' = ptr vm
       (charValue, newInput) = maybe (0, "") (\(x, xs) -> (ord' x, xs)) $ uncons input'
   modify $ \vm' -> vm'{mem = mem' // [(ptr', charValue)], input = newInput}
-  return Nothing
  where
   ord' :: Char -> Word8
   ord' = toEnum . ord
-interpretInstruction (OptimizedLoop xs) = do
-  vm <- get
-  if mem vm ! (ptr vm) == 0
-    then return Nothing
+interpretInstruction (OptimizedLoop body) = do
+  ptr' <- gets ptr
+  mem' <- gets mem
+  if mem' ! ptr' == 0
+    then return ()
     else do
-      interpret xs
-      interpretInstruction (OptimizedLoop xs)
+      interpret body
+      interpretInstruction (OptimizedLoop body)
