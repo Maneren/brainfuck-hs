@@ -48,10 +48,15 @@ parse (x : xs) = case x of
   '.' -> Output : parse xs
   ',' -> Input : parse xs
   '[' ->
-    let body = parse xs
-     in (Loop body) : parse (drop (length body + 1) xs)
-  ']' -> []
+    let (body, xs') = consumeLoopBody xs
+     in (Loop $ parse body) : parse xs'
   _ -> parse xs
+ where
+  consumeLoopBody [] = ([], [])
+  consumeLoopBody (']' : xs') = ([], xs')
+  consumeLoopBody (x' : xs') =
+    let (body, xs'') = consumeLoopBody xs'
+     in (x' : body, xs'')
 
 optimize :: [Instruction] -> [OptimizedInstruction]
 optimize [] = []
