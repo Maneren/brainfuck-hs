@@ -9,9 +9,7 @@ import Control.Monad.State.Lazy (
   modify,
  )
 import Data.Char (chr, ord)
-import Data.Functor ((<&>))
 import Data.List (uncons)
-import Data.Maybe (fromMaybe)
 import Data.Vector.Unboxed (Vector, replicate, (!), (//))
 import Data.Word (Word8)
 import System.Environment (getArgs)
@@ -136,7 +134,7 @@ interpretInstruction OptimizedInput = do
   let input' = input vm
       mem' = mem vm
       ptr' = ptr vm
-      (charValue, newInput) = fromMaybe (0, "") $ uncons input' <&> \(x, xs) -> (ord' x, xs)
+      (charValue, newInput) = maybe (0, "") (\(x, xs) -> (ord' x, xs)) $ uncons input'
   modify $ \vm' -> vm'{mem = mem' // [(ptr', charValue)], input = newInput}
   return Nothing
  where
