@@ -72,11 +72,12 @@ optimize (x : xs) = case x of
   Input -> OptimizedInput : optimize xs
   _ -> optimizeOne xs
  where
-  optimizeOne [] = [optVersion (1 :: Int)]
+  optimizeOne [] = [optVersion 1]
   optimizeOne xs' =
     let count = length $ takeWhile (== x) xs'
      in optVersion (1 + count) : optimize (dropWhile (== x) xs')
 
+  optVersion :: Int -> OptimizedInstruction
   optVersion c = case x of
     Add -> OptimizedAdd $ fromIntegral c
     Sub -> OptimizedSub $ fromIntegral c
