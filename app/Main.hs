@@ -2,7 +2,6 @@ module Main where
 
 import Control.Monad.State.Lazy (
   MonadIO (liftIO),
-  MonadState (get),
   StateT,
   evalStateT,
   gets,
@@ -166,11 +165,14 @@ interpret (x : xs) = do
     chr' = chr . fromEnum
 
   interpretInput = do
-    vm <- get
-    let (charValue, newInput) = maybe (0, "") (\(ch, rest) -> (ord' ch, rest)) $ uncons (input vm)
+    input' <- gets input
     mem' <- gets mem
     ptr' <- gets ptr
+
+    let (charValue, newInput) = maybe (0, "") (\(ch, rest) -> (ord' ch, rest)) $ uncons input'
+
     MV.write mem' ptr' charValue
+
     modify $ \vm' -> vm'{input = newInput}
    where
     ord' :: Char -> Word8
@@ -184,8 +186,11 @@ interpret (x : xs) = do
   interpretLoop :: [OptimizedInstruction] -> VMState ()
   interpretLoop body = do
     mem' <- gets mem
-    value <- MV.read mem' ptr'
-    if value == 0
+    ptr' <- gets ptr
+
+    cond <- MV.read mem' ptr'
+
+    if cond == 0
       then return ()
       else do
         interpret body
