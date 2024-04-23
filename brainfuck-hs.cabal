@@ -1,15 +1,14 @@
-cabal-version:      3.0
-name:               brainfuck-hs
-version:            0.1.0
-synopsis:           Brainfuck interpreter implemented in haskell
-homepage:           https://github.com/Maneren/brainfuck-hs
-license:            MIT
-license-file:       LICENSE
-author:             Maneren
-maintainer:         maneren731@gmail.com
-category:           Language
-build-type:         Simple
-extra-doc-files:    CHANGELOG.md
+cabal-version: 3.0
+name:          brainfuck-hs
+version:       0.1.0
+synopsis:      Brainfuck interpreter implemented in haskell
+homepage:      https://github.com/Maneren/brainfuck-hs
+license:       MIT
+license-file:  LICENSE
+author:        Maneren
+maintainer:    maneren731@gmail.com
+category:      Language
+build-type:    Simple
 
 common warnings
     ghc-options: -Wall
@@ -17,9 +16,10 @@ common warnings
 executable brainfuck-hs
     import:           warnings
     main-is:          Main.hs
-    build-depends:    
-        base >= 4,
-        mtl >= 2,
-        vector >= 0.5,
+    build-depends:
+        , base    >=4.19   && <4.20
+        , mtl     >=2.3.1  && <2.4
+        , vector  >=0.13.1 && <0.14
+
     hs-source-dirs:   app
     default-language: Haskell2010
