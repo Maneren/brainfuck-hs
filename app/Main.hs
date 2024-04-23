@@ -10,12 +10,18 @@ import Control.Monad.State.Lazy (
  )
 import Data.Char (chr, ord)
 import Data.List (uncons)
-import Data.Vector.Unboxed (Vector, replicate, (!), (//))
+import Data.Vector.Unboxed (MVector)
+import qualified Data.Vector.Unboxed.Mutable as MV
 import Data.Word (Word8)
 import System.Environment (getArgs)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
 
-data VM = VM {mem :: Vector Word8, ptr :: Int, input :: String} deriving (Show)
+data VM = VM
+  { mem :: MVector MV.RealWorld Word8
+  , ptr :: Int
+  , input :: String
+  }
+
 type VMState = StateT VM IO
 
 data Instruction
@@ -94,67 +100,93 @@ optimize (x : xs) = case x of
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
+
   args <- getArgs
   (file, memSize) <- case args of
     [file, memSize] -> do
       memSize' <- readIO memSize
       return (file, memSize')
     [file] -> do
-      return (file, 1024)
+      return (file, 256)
     _ -> error "Usage: ./brainfuck <file>"
 
   contents <- readFile file
-  let initialState = VM{mem = Data.Vector.Unboxed.replicate memSize 0, ptr = 0, input = ""}
-      instructions = optimize $ parse contents
-  evalStateT (interpret instructions) initialState
+  initialMemory <- MV.new memSize :: IO (MVector MV.RealWorld Word8)
 
+  let initialState = VM{mem = initialMemory, ptr = 0, input = ""}
+      instructions = optimize $ parse contents
+
+  evalStateT (interpret instructions) initialState
 interpret :: [OptimizedInstruction] -> VMState ()
 interpret [] = return ()
 interpret (x : xs) = do
-  interpretInstruction x
+  interpretOne x
   interpret xs
+ where
+  interpretOne :: OptimizedInstruction -> VMState ()
+  interpretOne (OptimizedAdd c) = interpretAdd c
+  interpretOne (OptimizedSub c) = interpretSub c
+  interpretOne (OptimizedMoveLeft c) = interpretMoveLeft c
+  interpretOne (OptimizedMoveRight c) = interpretMoveRight c
+  interpretOne OptimizedOutput = interpretOutput
+  interpretOne OptimizedInput = interpretInput
+  interpretOne OptimizedClear = interpretClear
+  interpretOne (OptimizedLoop body) = interpretLoop body
 
-interpretInstruction :: OptimizedInstruction -> VMState ()
-interpretInstruction (OptimizedAdd c) = do
-  mem' <- gets mem
-  ptr' <- gets ptr
-  modify $ \vm -> vm{mem = mem' // [(ptr', (mem' ! ptr') + c)]}
-interpretInstruction (OptimizedSub c) = do
-  mem' <- gets mem
-  ptr' <- gets ptr
-  modify $ \vm -> vm{mem = mem' // [(ptr', (mem' ! ptr') - c)]}
-interpretInstruction (OptimizedMoveLeft c) = do
-  ptr' <- gets ptr
-  modify $ \vm -> vm{ptr = (ptr' - c)}
-interpretInstruction (OptimizedMoveRight c) = do
-  ptr' <- gets ptr
-  modify $ \vm -> vm{ptr = (ptr' + c)}
-interpretInstruction OptimizedOutput = do
-  mem' <- gets mem
-  ptr' <- gets ptr
-  liftIO $ putChar $ chr' (mem' ! ptr')
- where
-  chr' :: Word8 -> Char
-  chr' = chr . fromEnum
-interpretInstruction OptimizedInput = do
-  vm <- get
-  let input' = input vm
-      mem' = mem vm
-      ptr' = ptr vm
-      (charValue, newInput) = maybe (0, "") (\(x, xs) -> (ord' x, xs)) $ uncons input'
-  modify $ \vm' -> vm'{mem = mem' // [(ptr', charValue)], input = newInput}
- where
-  ord' :: Char -> Word8
-  ord' = toEnum . ord
-interpretInstruction OptimizedClear = do
-  mem' <- gets mem
-  ptr' <- gets ptr
-  modify $ \vm -> vm{mem = mem' // [(ptr', 0)]}
-interpretInstruction (OptimizedLoop body) = do
-  ptr' <- gets ptr
-  mem' <- gets mem
-  if mem' ! ptr' == 0
-    then return ()
-    else do
-      interpret body
-      interpretInstruction (OptimizedLoop body)
+  interpretAdd :: Word8 -> VMState ()
+  interpretAdd c = do
+    mem' <- gets mem
+    ptr' <- gets ptr
+    value <- MV.read mem' ptr'
+
+    MV.write mem' ptr' (value + c)
+
+  interpretSub :: Word8 -> VMState ()
+  interpretSub c = do
+    mem' <- gets mem
+    ptr' <- gets ptr
+    value <- MV.read mem' ptr'
+
+    MV.write mem' ptr' (value - c)
+
+  interpretMoveLeft :: Int -> VMState ()
+  interpretMoveLeft c = modify $ \vm -> vm{ptr = (ptr vm - c)}
+
+  interpretMoveRight :: Int -> VMState ()
+  interpretMoveRight c = modify $ \vm -> vm{ptr = (ptr vm + c)}
+
+  interpretOutput = do
+    mem' <- gets mem
+    ptr' <- gets ptr
+    value <- MV.read mem' ptr'
+
+    liftIO $ putChar $ chr' value
+   where
+    chr' :: Word8 -> Char
+    chr' = chr . fromEnum
+
+  interpretInput = do
+    vm <- get
+    let (charValue, newInput) = maybe (0, "") (\(ch, rest) -> (ord' ch, rest)) $ uncons (input vm)
+    mem' <- gets mem
+    ptr' <- gets ptr
+    MV.write mem' ptr' charValue
+    modify $ \vm' -> vm'{input = newInput}
+   where
+    ord' :: Char -> Word8
+    ord' = fromIntegral . ord
+
+  interpretClear = do
+    mem' <- gets mem
+    ptr' <- gets ptr
+    MV.write mem' ptr' 0
+
+  interpretLoop :: [OptimizedInstruction] -> VMState ()
+  interpretLoop body = do
+    mem' <- gets mem
+    value <- MV.read mem' ptr'
+    if value == 0
+      then return ()
+      else do
+        interpret body
+        interpretLoop body
